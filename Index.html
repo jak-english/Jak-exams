@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>JAK EXAMS</title>
+</head>
+
+<body style="text-align:center; font-family:sans-serif; margin-top:50px;">
+
+<h1>JAK EXAMS 🔥</h1>
+
+<input id="email" placeholder="Email"><br><br>
+<input id="password" type="password" placeholder="Password (6+ chars)"><br><br>
+
+<button onclick="signup()">Sign Up</button>
+<button onclick="login()">Login</button>
+
+<br><br><hr><br>
+
+<button onclick="startExam()">Start Exam</button>
+
+<p id="status"></p>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const SUPABASE_URL = "https://bvvvfgsogkzaikpraluof.supabase.co";
+
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dmdmc29na3phaWtwcmFsdW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjYwMDAsImV4cCI6MjA5MjYwMjAwMH0.Rv4gjwqFA_ZVyice9JBV7sf81alsZb3PmB3lVtS4Xjo";
+
+const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function show(msg) {
+  document.getElementById("status").innerText = msg;
+  alert(msg);
+}
+
+window.signup = async function () {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await client.auth.signUp({ email, password });
+
+  if (error) show("❌ " + error.message);
+  else show("✅ تم إنشاء الحساب");
+};
+
+window.login = async function () {
+  const email = document.getElementById("email").value;
+  const password = document.getElementById("password").value;
+
+  const { error } = await client.auth.signInWithPassword({ email, password });
+
+  if (error) show("❌ " + error.message);
+  else show("✅ تم تسجيل الدخول");
+};
+
+window.startExam = async function () {
+  const { data: { user } } = await client.auth.getUser();
+
+  if (!user) {
+    show("❌ سجل دخول أولاً");
+    return;
+  }
+
+  const { data, error } = await client
+    .from("profiles")
+    .select("is_premium, premium_until")
+    .eq("id", user.id)
+    .single();
+
+  if (error) {
+    show("❌ مشكلة الاشتراك: " + error.message);
+    return;
+  }
+
+  const now = new Date();
+  const end = data?.premium_until ? new Date(data.premium_until) : null;
+
+  if (!data?.is_premium || !end || end < now) {
+    show("🔒 هذا الامتحان Premium");
+    return;
+  }
+
+  show("🎉 أهلاً بك في الامتحان!");
+};
+</script>
+
+</body>
+</html>
