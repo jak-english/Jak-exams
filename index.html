@@ -10,7 +10,7 @@
 <h1>JAK EXAMS 🔥</h1>
 
 <input id="email" placeholder="Email"><br><br>
-<input id="password" type="password" placeholder="Password (6+ chars)"><br><br>
+<input id="password" type="password" placeholder="Password"><br><br>
 
 <button onclick="signup()">Sign Up</button>
 <button onclick="login()">Login</button>
@@ -21,69 +21,99 @@
 
 <p id="status"></p>
 
-<script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
+<script>
 const SUPABASE_URL = "https://bvvvfgsogkzaikpraluof.supabase.co";
-
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dmdmc29na3phaWtwcmFsdW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjYwMDAsImV4cCI6MjA5MjYwMjAwMH0.Rv4gjwqFA_ZVyice9JBV7sf81alsZb3PmB3lVtS4Xjo";
-
-const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2dmdmc29na3phaWtwcmFsdW9mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMjYwMDAsImV4cCI6MjA5MjYwMjAwMH0.Rv4gjwqFA_ZVyice9JBV7sf81alsZb3PmB3lVtS4Xjo";
 
 function show(msg) {
   document.getElementById("status").innerText = msg;
   alert(msg);
 }
 
-window.signup = async function () {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+async function signup() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-  const { error } = await client.auth.signUp({ email, password });
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+    method: "POST",
+    headers: {
+      "apikey": ANON_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
 
-  if (error) show("❌ " + error.message);
-  else show("✅ تم إنشاء الحساب");
-};
+  const data = await res.json();
 
-window.login = async function () {
-  const email = document.getElementById("email").value;
-  const password = document.getElementById("password").value;
+  if (!res.ok) {
+    show("❌ " + (data.msg || data.error_description || "Signup failed"));
+    return;
+  }
 
-  const { error } = await client.auth.signInWithPassword({ email, password });
+  show("✅ تم إنشاء الحساب");
+}
 
-  if (error) show("❌ " + error.message);
-  else show("✅ تم تسجيل الدخول");
-};
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
 
-window.startExam = async function () {
-  const { data: { user } } = await client.auth.getUser();
+  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+    method: "POST",
+    headers: {
+      "apikey": ANON_KEY,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ email, password })
+  });
 
-  if (!user) {
+  const data = await res.json();
+
+  if (!res.ok) {
+    show("❌ " + (data.error_description || data.msg || "Login failed"));
+    return;
+  }
+
+  localStorage.setItem("access_token", data.access_token);
+  localStorage.setItem("user_id", data.user.id);
+
+  show("✅ تم تسجيل الدخول");
+}
+
+async function startExam() {
+  const token = localStorage.getItem("access_token");
+  const userId = localStorage.getItem("user_id");
+
+  if (!token || !userId) {
     show("❌ سجل دخول أولاً");
     return;
   }
 
-  const { data, error } = await client
-    .from("profiles")
-    .select("is_premium, premium_until")
-    .eq("id", user.id)
-    .single();
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=is_premium,premium_until`, {
+    method: "GET",
+    headers: {
+      "apikey": ANON_KEY,
+      "Authorization": `Bearer ${token}`
+    }
+  });
 
-  if (error) {
-    show("❌ مشكلة الاشتراك: " + error.message);
+  const data = await res.json();
+
+  if (!res.ok || !data.length) {
+    show("❌ مشكلة في قراءة الاشتراك");
     return;
   }
 
+  const profile = data[0];
   const now = new Date();
-  const end = data?.premium_until ? new Date(data.premium_until) : null;
+  const end = profile.premium_until ? new Date(profile.premium_until) : null;
 
-  if (!data?.is_premium || !end || end < now) {
+  if (!profile.is_premium || !end || end < now) {
     show("🔒 هذا الامتحان Premium");
     return;
   }
 
   show("🎉 أهلاً بك في الامتحان!");
-};
+}
 </script>
 
 </body>
